@@ -1,15 +1,15 @@
-fn take(v: Vec<i32>) {
-
+fn print(s: &String) {
+    println!("{}", s)
 }
 
 fn main() {
+    let mut v = String::from("hello");
+
     let w;
 
-    {
-        let v = vec![1, 2, 3];
-        w = &v;
-    }
+    w = &mut v;
 
-
+    print(&v);
+    
     println!("Hello, world: {}", w.len());
 }

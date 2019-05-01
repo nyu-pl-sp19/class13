@@ -224,7 +224,10 @@ A common way to implement reference counting is in the form of a
 *smart pointer* library. We demonstrate how to do this in C++, which
 allows us to implement smart pointers in a way that mimics a regular
 pointer in syntax and semantics, making it convenient to use for
-clients.
+clients. Note the C++ standard library already comes with a [smart
+pointer implementation](https://en.cppreference.com/book/intro/smart_pointers) that
+you can use out of the box. The point of the following is to
+understand how smart pointers work.
 
 * With smart pointers we can do some of what a garbage collector does
   for us (i.e. automatically deallocate heap memory that is no longer
@@ -325,6 +328,13 @@ A y;
 y = x; // calls assignment operator of `A` on y with x as argument.
 ```
 
+That is, the assignment expression `y = x` is syntactic sugar for the
+following method call:
+
+```C++
+y.operator=(x)
+```
+
 **Destructor**: intuitively, you can think of a destructor as the
 opposite of a constructor. A destructor is a method which is
 automatically invoked when the object is destroyed, i.e., when the
@@ -354,7 +364,26 @@ default implementations are:
 * Destructor - Call the destructors of all the object's class-type
   members (note that for pointer-typed members, the destructors of
   the referenced external objects are **not** called by the default
-  destructors).
+  destructors). Example:
+  
+  ```c++
+  class A { ... };
+  
+  class B {
+    A a;
+    A* pa;
+    ...
+  };
+  ```
+  
+  When a `B` instance is deleted, then the destructor `~B` will
+  automatically call the destructor `~A` for the field `a` because the
+  corresponding `A` instance is directly embedded within the data
+  layout of the `B` instance. However, the destructor of the `A`
+  instance pointed to by the field `pa` will not be called
+  automatically. This is because that `A` instance is (likely)
+  external to the deleted `B` instance and, hence, there may be other
+  life objects that still hold pointers to this `A` instance.
 
 * Copy constructor - Construct all the object's members from the
   corresponding members of the copy constructor's argument (shallow copy).
@@ -377,7 +406,80 @@ they are no longer needed. Since destructors of stack-allocated
 objects are called automatically when the objects are popped from the
 stack, this approach yields a semi-automatic memory management
 strategy.
+
+Here is how we can use this strategy to implement resizable arrays
+(aka vectors) that provide automatic memory management of the
+heap-allocated data stored in the array:
+
+```c++
+class ArrayIndexOutOfBoundsException {};
+
+template<typename T>
+class Vector {
+  size_t size;
+  T* data; // pointer to heap-allocated array
+public:
+  // Standard constructor
+  Vector(size_t _size)
+    : size(_size), data(new T[_size]) {
+  }
+
+  // Copy constructor
+  Vector(const Vector<T>& other)
+    : size(other.size), data(new T[other.size]) {
+    std::memcpy(data, other.data, size * sizeof(T));
+  }
+
+  // Destructor
+  ~Vector() {
+    delete[] data;
+  }
+
+  // Resizing
+  void resize(size_t new_size) {
+    if (size == new_size) return;
+    delete[] data;
+    size = new_size;
+    data = new T[size];    
+  }
   
+  // Assignment operator
+  Vector<T>& operator=(const Vector<T>& right) {
+    if (right.data != data) {
+      resize(right.size);
+      memcpy(data, right.data, size * sizeof(T));
+    }
+    return *this;
+  }
+  
+  // Array access
+  T& operator[](int32_t index) {
+    if (0 > index || index >= size) {
+      throw ArrayIndexOutOfBoundsException();
+    }
+    return data[index];
+  }
+
+  const T& operator[](int32_t index) const {
+    if (0 > index || index >= size) {
+      throw ArrayIndexOutOfBoundsException();
+    }
+    return data[index];
+  }
+  
+};
+```
+
+The implementations of the copy constructor and assignment operator
+make a deep copy of the vector object that is being copied (assigned
+from). This way, the implementation maintains the invariant that every
+vector instance holds a pointer to a heap-allocated array of `T`
+values (the actual data) that is owned by that instance. That is, no
+two vector instances point to the same heap-allocated array. This way,
+we ensure that the destructor can safely delete the array on the heap
+without creating dangling pointers in any other vector instance that
+is still alive. 
+
 Where things get more complicated is when heap allocated objects are
 shared between several stack allocated objects. So in this case, it is
 in general unclear which object is responsible for *cleaning up*. This
@@ -552,18 +654,18 @@ whenever you want to compile and run the test program.
 
 While reference counting is a relatively light-weight approach to
 realize automated memory management, it still has the run-time
-overhead for the booking of the counters.
+overhead for the bookkeeping of the counters.
 
 An alternative approach is to move all the reasoning involved in
 determining which references are alive at what time from run-time to
 compile-time. That is, can we get automated memory management without
-any run-time overhead? The answer is, perhaps surprisingly "yes".
+any run-time overhead? The answer is, perhaps surprisingly, "yes".
 
 One way to realize this by implementing a more sophisticated static
 type system in the compiler that keeps track of which pointer *owns*
 which heap-allocated object and is, hence, responsible for deleting
-the object when it is no longer needed. An example of language with
+the object when it is no longer needed. An example of a language with
 such an *ownership type system* is [Rust](https://www.rust-lang.org/).
 
-See [here](https://doc.rust-lang.org/book/2018-edition/ch04-00-understanding-ownership.html) for a
+See [here](https://doc.rust-lang.org/book/ch04-01-what-is-ownership.html) for a
 tutorial explaining the basics of how memory management works in Rust.
