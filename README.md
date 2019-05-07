@@ -613,7 +613,7 @@ Here is another example
 8: }
 ```
 
-When line 8 is executed, we set the smart pointer inside of the `Node`
+When line 7 is executed, we set the smart pointer inside of the `Node`
 object on the heap that is pointed to by `p` back to itself, creating
 a cyclic pointer structure. I.e. at this point, we have one counter
 associated with the `Node` object created on line 6 and its value is 2
