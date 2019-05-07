@@ -1,6 +1,5 @@
 #include <iostream>
 #include "ptr.h"
-#include "vector.h"
 
 struct A;
 

@@ -1,15 +1,16 @@
-fn print(s: &String) {
-    println!("{}", s)
+fn print(s: &mut String) {
+    println!("{}", s);
+    s.clear()
 }
 
 fn main() {
     let mut v = String::from("hello");
 
-    let w;
+    print(&mut v);
 
-    w = &mut v;
+    let w = &v;
 
-    print(&v);
+    //v.clear();
     
-    println!("Hello, world: {}", w.len());
+    println!("v.len: {}", w.len());
 }
